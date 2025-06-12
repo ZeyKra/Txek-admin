@@ -4,6 +4,7 @@ import Surreal from "surrealdb"
 import { cookies } from "next/headers"
 import { type SurrealResponse } from "@/types/surreal-response"
 import { getActivePlayerCount } from "./statistics-actions"
+import { log } from "console"
 
 interface ConnectionSettings {
   url: string
@@ -280,7 +281,9 @@ export async function deleteRecord(tableName: string, id: string) {
   try {
     const db = await getSurrealClient()
     // In 1.2.1, the delete method might have a different signature
-    await db.query(`DELETE ${id}`)
+    let result = await db.query(`DELETE ${id}`)
+    console.log(`Delete result for ${id}:`, result);
+    
     await db.close()
     return { success: true }
   } catch (error) {

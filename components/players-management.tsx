@@ -36,6 +36,7 @@ export function PlayersManagement() {
     try {
       const data = await fetchPlayers(page, pageSize)
       setPlayers(data.players)
+      
       setTotalPages(Math.ceil(data.total / pageSize) || 1)
     } catch (error) {
       console.error("Failed to fetch players:", error)
@@ -93,9 +94,7 @@ export function PlayersManagement() {
   const filteredPlayers = players.filter((player) => {
     const searchLower = searchQuery.toLowerCase()
     return (
-      player.Nom?.toLowerCase().includes(searchLower) ||
-      player.Prenom?.toLowerCase().includes(searchLower) ||
-      player.team?.toLowerCase().includes(searchLower)
+      player.username?.toLowerCase().includes(searchLower) 
     )
   })
 
@@ -152,13 +151,13 @@ export function PlayersManagement() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <UserRound className="h-4 w-4 text-muted-foreground" />
-                        {player.Nom}
+                        {player.username}
                       </div>
                     </TableCell>
                     <TableCell>{player.team}</TableCell>
-                    <TableCell>{player.position}</TableCell>
-                    <TableCell>{player.level}</TableCell>
-                    <TableCell>{player.score}</TableCell>
+                    <TableCell>"{player.position}"</TableCell>
+                    <TableCell>"{player.level}"</TableCell>
+                    <TableCell>"{player.score}"</TableCell>
                     <TableCell>
                       <Badge variant={player.active ? "success" : "outline"}>
                         {player.active ? "Actif" : "Inactif"}

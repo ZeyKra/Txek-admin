@@ -1,4 +1,5 @@
 "use server"
+import { SurrealResponse } from "@/types/surreal-response"
 import { countTable, getSurrealClient } from "./surreal-actions"
 
 // Fetch players with pagination
@@ -7,17 +8,14 @@ export async function fetchPlayers(page = 1, limit = 10) {
     const db = await getSurrealClient()
     const offset = (page - 1) * limit
 
-    const total = await countTable("Joueur")
+    const total = await countTable("RecordedUser") || 0
     //const total = countResult[0].result?.[0]?.count || 0
 
-    const playersResult = await db.query(`SELECT * FROM Joueur ORDER BY Nom DESC LIMIT ${limit} START ${offset}`)
+    const playersResult: SurrealResponse<any> = await db.query(`SELECT * FROM RecordedUser ORDER BY Nom DESC LIMIT ${limit} START ${offset}`)
     await db.close()
-
-    console.log(playersResult[0]);
     
-
     return {
-      players: JSON.parse(JSON.stringify(playersResult[0] || [])), 
+      players: JSON.parse(JSON.stringify(playersResult[0] || [])),
       total,
     }
   } catch (error) {
@@ -33,7 +31,11 @@ export async function fetchPlayers(page = 1, limit = 10) {
 export async function fetchPlayerById(id: string) {
   try {
     const db = await getSurrealClient()
-    const result = await db.select(id)
+    const fetchedPlayerData: SurrealResponse<any> = await db.query(`SELECT * FROM ${id}`)
+
+    const result = fetchedPlayerData[0][0]
+    result.id = `${fetchedPlayerData[0][0].id.tb}:${fetchedPlayerData[0][0].id.id}`
+
     await db.close()
     return result
   } catch (error) {
@@ -80,7 +82,7 @@ export async function updatePlayer(id: string, playerData: any) {
 export async function deletePlayer(id: string) {
   try {
     const db = await getSurrealClient()
-    await db.delete(id)
+    await db.query(`DELETE ${id}`)
     await db.close()
     return { success: true }
   } catch (error) {

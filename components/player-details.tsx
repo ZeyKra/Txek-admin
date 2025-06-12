@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { fetchPlayerById, updatePlayerStats, addPlayerAchievement } from "@/lib/player-actions"
-import { getPlayerPerformanceHistory } from "@/lib/statistics-actions"
+import { getPlayerPerformanceHistory, getPlayerStats, PlayerStats } from "@/lib/statistics-actions"
 import { ArrowLeft, Award, BarChart3, Calendar, Edit, Trophy, UserRound, TrendingUp, Target, Clock } from "lucide-react"
 import { PlayerStatsChart } from "./player-stats-chart"
 import { PlayerAchievements } from "./player-achievements"
@@ -28,6 +28,7 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
   const [loading, setLoading] = useState(true)
   const [performanceData, setPerformanceData] = useState<any>(null)
   const [performanceLoading, setPerformanceLoading] = useState(true)
+  const [playerStats, setPlayerStats] = useState<PlayerStats>()
   const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false)
 
   const loadPlayer = async () => {
@@ -45,6 +46,8 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
   const loadPerformanceData = async () => {
     setPerformanceLoading(true)
     try {
+      //console.log(`Fetching performance data for player ${playerId}`); //DEBUG 
+
       const data = await getPlayerPerformanceHistory(playerId)
       setPerformanceData(data)
     } catch (error) {
@@ -54,11 +57,26 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
     }
   }
 
+  const generatePlayerStats = async () => {
+    try {
+      const stats = await getPlayerStats(playerId)
+      console.log(`Generated stats for player ${playerId}:`, stats) //DEBUG
+
+      setPlayerStats(stats)
+    } catch (error) {
+      console.error("Failed to fetch player stats:", error)
+      toast.error("Échec de la récupération des statistiques du joueur")
+    }
+  }
+
   useEffect(() => {
     loadPlayer()
     loadPerformanceData()
+    generatePlayerStats()
   }, [playerId])
 
+
+  // Move this useEffect here, before any conditional returns
   const handleUpdateStats = async (stats: any) => {
     try {
       await updatePlayerStats(playerId, stats)
@@ -92,10 +110,9 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
   }
 
   // Calculate additional stats
-  const totalGames = player.stats?.games || 0
-  const wins = player.stats?.wins || 0
-  const losses = player.stats?.losses || 0
-  const draws = player.stats?.draws || 0
+  const totalGames: number = playerStats?.games || 0;
+  const wins = playerStats?.wins || 0
+  const losses = playerStats?.losses || 0
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0
   const avgPointsPerGame = totalGames > 0 ? Math.round((player.stats?.points || 0) / totalGames) : 0
   const totalCardsPlayed = player.stats?.cardsPlayed || 0
@@ -116,93 +133,44 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
                 <CardTitle className="text-2xl">{player.name}</CardTitle>
                 <CardDescription>{player.username}</CardDescription>
               </div>
-              <Badge variant={player.active ? "success" : "outline"} className="ml-auto">
-                {player.active ? "Actif" : "Inactif"}
+              <Badge variant={playerStats?.active ? "success" : "outline"} className="ml-auto">
+                {playerStats?.active ? "Actif" : "Inactif"}
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex items-center gap-2">
-                <UserRound className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Équipe: {player.team || "N/A"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Position: {player.position || "N/A"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Niveau: {player.level}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Score: {player.score}</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Inscrit le: {new Date(player.joinDate).toLocaleDateString()}</span>
+                <span className="text-sm">Inscrit le: {new Date(player.created_at).toLocaleDateString()}</span>
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
                   Dernière activité: {player.updated_at ? new Date(player.updated_at).toLocaleDateString() : "Inconnue"}
                 </span>
-              </div>
+              </div> */}
             </div>
-
-            {player.bio && (
-              <div className="mt-4 pt-4 border-t">
-                <h3 className="text-sm font-medium mb-2">Biographie</h3>
-                <p className="text-sm text-muted-foreground">{player.bio}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg">Statistiques du Joueur</CardTitle>
-            <Dialog open={isStatsDialogOpen} onOpenChange={setIsStatsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Mettre à jour
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>Mettre à jour les Statistiques du Joueur</DialogTitle>
-                </DialogHeader>
-                <PlayerStatForm initialStats={player.stats} onSubmit={handleUpdateStats} />
-              </DialogContent>
-            </Dialog>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
               <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{player.stats?.games || 0}</span>
+                <span className="text-2xl font-bold">{playerStats?.games || 0}</span>
                 <span className="text-xs text-muted-foreground">Parties</span>
               </div>
               <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{player.stats?.wins || 0}</span>
+                <span className="text-2xl font-bold">{playerStats?.wins || 0}</span>
                 <span className="text-xs text-muted-foreground">Victoires</span>
               </div>
               <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{player.stats?.losses || 0}</span>
+                <span className="text-2xl font-bold">{playerStats?.losses || 0}</span>
                 <span className="text-xs text-muted-foreground">Défaites</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{totalCardsPlayed}</span>
-                <span className="text-xs text-muted-foreground">Cartes Jouées</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{specialCardsPlayed}</span>
-                <span className="text-xs text-muted-foreground">Cartes Spéciales</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-md">
-                <span className="text-2xl font-bold">{player.stats?.points || 0}</span>
-                <span className="text-xs text-muted-foreground">Points</span>
               </div>
             </div>
 
@@ -214,13 +182,6 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
                   <div className="text-xs text-muted-foreground">Taux de Victoire</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-medium">{avgPointsPerGame}</div>
-                  <div className="text-xs text-muted-foreground">Pts/Partie Moy.</div>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -229,10 +190,8 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
       <Tabs defaultValue="performance">
         <TabsList>
           <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="history">Historique de Performance</TabsTrigger>
-          <TabsTrigger value="cards">Statistiques de Cartes</TabsTrigger>
-          <TabsTrigger value="matches">Historique des Manches</TabsTrigger>
-          <TabsTrigger value="achievements">Réalisations</TabsTrigger>
+          {/* <TabsTrigger value="cards">Cartes</TabsTrigger> */}
+          <TabsTrigger value="matches">Historique des Matches</TabsTrigger>
         </TabsList>
         <TabsContent value="performance" className="mt-4">
           <Card>
@@ -241,39 +200,19 @@ export function PlayerDetails({ playerId }: PlayerDetailsProps) {
               <CardDescription>Répartition des statistiques actuelles</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <PlayerStatsChart stats={player.stats} />
+              <PlayerStatsChart 
+                wins={wins} 
+                losses={losses} 
+                totalGames={totalGames} 
+              />
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="history" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Historique de Performance</CardTitle>
-              <CardDescription>Statistiques du joueur au fil du temps</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[400px]">
-              {performanceLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center text-muted-foreground">Chargement des données de performance...</div>
-                </div>
-              ) : !performanceData ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center text-muted-foreground">Aucune donnée de performance disponible</div>
-                </div>
-              ) : (
-                <PlayerPerformanceChart data={performanceData} />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="cards" className="mt-4">
+        {/* <TabsContent value="cards" className="mt-4">
           <PlayerCardStats playerId={playerId} cardStats={player.stats?.cardStats || []} onUpdate={loadPlayer} />
-        </TabsContent>
+        </TabsContent> */}
         <TabsContent value="matches" className="mt-4">
           <PlayerMatchHistory playerId={playerId} />
-        </TabsContent>
-        <TabsContent value="achievements" className="mt-4">
-          <PlayerAchievements achievements={player.stats?.achievements || []} onAddAchievement={handleAddAchievement} />
         </TabsContent>
       </Tabs>
     </div>

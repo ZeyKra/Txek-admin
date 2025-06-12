@@ -2,6 +2,8 @@
 import { SurrealResponse } from "@/types/surreal-response"
 import { getSurrealClient } from "./surreal-actions"
 import { log } from "console"
+import { fetchPlayerById } from "./player-actions"
+import { parse } from "path"
 
 // Fetch statistics for dashboard
 export async function fetchStatistics() {
@@ -221,7 +223,8 @@ export async function getPlayerPerformanceHistory(playerId: string) {
     const db = await getSurrealClient()
 
     // Get the player data
-    const player = await db.select(playerId)
+    const player = await fetchPlayerById(playerId);
+    
 
     if (!player) {
       throw new Error("Player not found")
@@ -230,7 +233,9 @@ export async function getPlayerPerformanceHistory(playerId: string) {
     // In a real app, you'd have a match history table with timestamps
     // Here we'll generate some realistic looking data based on the player's current stats
 
-    const totalGames = player.stats?.games || 0
+    const totalGameQuery: SurrealResponse<any> = await db.query(`SELECT count() AS match_count FROM ${playerId}->recordeduser_recorded_match->Match GROUP BY match_count;`)
+
+    const totalGames: number = totalGameQuery[0]['count'] || 0;
     const wins = player.stats?.wins || 0
     const losses = player.stats?.losses || 0
     const draws = player.stats?.draws || 0
@@ -343,3 +348,64 @@ FROM RecordedUser;`)
   }
 }
 
+export interface PlayerStats {
+  games: number
+  wins: number
+  losses: number
+  active: boolean
+}
+
+export async function getPlayerStats(playerId: string) : Promise<PlayerStats> {
+  try {
+    const db = await getSurrealClient()
+    
+    // Get player stats
+    const playerData = await fetchPlayerById(playerId);
+    const winsData: SurrealResponse<any> = await db.query(`SELECT COUNT() as count, winner FROM ${playerId}->recordeduser_recorded_match->Match WHERE winner = "Penny" GROUP count;`);
+    const totalMatchData : SurrealResponse<any> = await db.query(`SELECT count() AS match_count FROM ${playerId}->recordeduser_recorded_match->Match GROUP BY match_count;`);
+    
+    /*
+    console.log("Player Data:", playerData);
+    console.log("Wins Data:", winsData);
+    console.log("Total Match Data:", totalMatchData); */
+
+    const wins : number = winsData[0][0]['count'] || 0;
+    const totalMatches : number = totalMatchData[0][0]['match_count'] || 0;
+    const losses = totalMatches - wins; // Assuming losses are total matches minus wins
+    const active = await isPlayerActive(playerId); // Check if the player is active
+
+    const playerStats: PlayerStats = {
+      games: totalMatches,
+      wins: wins,
+      losses: losses,
+      active: active,
+    }
+    
+    await db.close()
+    return playerStats
+  } catch (error) {
+    console.error(`Failed to fetch player stats for ${playerId}:`, error)
+    throw new Error(`Failed to fetch player stats: ${error}`)
+  }
+}
+
+export async function isPlayerActive(playerId: string) {
+  try {
+    const db = await getSurrealClient()
+    let isActive = false;
+
+    // Get player activity status
+    const matchCreatedThisWeekNumber = await db.query(`(SELECT VALUE count() FROM ${playerId}->recordeduser_recorded_match->Match WHERE Time::week(created_at) = Time::week(Time::now()) GROUP count)[0].count OR 0`);
+    const parsedMatchCount = parseInt(matchCreatedThisWeekNumber) || 0;
+
+    if (parsedMatchCount > 0) {
+      isActive = true;
+    }
+
+    await db.close()
+    return isActive
+  } catch (error) {
+    console.error(`Failed to fetch player activity status for ${playerId}:`, error)
+    throw new Error(`Failed to fetch player activity status: ${error}`)
+  }
+}

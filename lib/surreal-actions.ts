@@ -312,9 +312,17 @@ export async function updateRecord(tableName: string, id: string, data: any) {
     const db = await getSurrealClient()
     // Retret du champ id a fin de mettre a jour l'entré
     data = Object.fromEntries(Object.entries(data).filter(([key]) => key !== "id"));
+    // Convert date strings to Date objects for specific fields
+    if (data.completed_at && typeof data.completed_at === 'string') {
+      data.completed_at = new Date(data.completed_at)
+    }
+    if (data.created_at && typeof data.created_at === 'string') {
+      data.created_at = new Date(data.created_at)
+    }
+
 
     //const result = await db.update(id, data)
-    const result = await db.query(`UPDATE ${id} CONTENT ${JSON.stringify(data)}`)
+    const result = await db.query(`UPDATE ${id} CONTENT $item`, { item: data })
 
     
     await db.close()

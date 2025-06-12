@@ -82,6 +82,8 @@ export function TableDataView({ tableName }: TableDataViewProps) {
 
   const handleUpdate = async (data: any) => {
     try {
+      console.log("Updating record with data:", data, selectedRecord.id, tableName) //DEBUG
+
       await updateRecord(tableName, selectedRecord.id, data)
       toast.success("Record updated successfully")
       setIsEditDialogOpen(false)
@@ -107,7 +109,7 @@ export function TableDataView({ tableName }: TableDataViewProps) {
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search records..."
+            placeholder="Chercher un enregistrement..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 w-full md:w-[300px]"
@@ -209,7 +211,7 @@ export function TableDataView({ tableName }: TableDataViewProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Edit Record</DialogTitle>
+            <DialogTitle>Editer le registre</DialogTitle>
           </DialogHeader>
           {selectedRecord && <RecordForm columns={columns} initialData={selectedRecord} onSubmit={handleUpdate} />}
         </DialogContent>

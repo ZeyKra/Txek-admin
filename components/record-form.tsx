@@ -98,7 +98,7 @@ export function RecordForm({ columns, initialData, onSubmit }: RecordFormProps) 
         )
       })}
       <Button type="submit" className="mt-4">
-        Save Changes
+        Sauvegarder
       </Button>
     </form>
   )

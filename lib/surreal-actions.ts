@@ -2,6 +2,8 @@
 
 import Surreal from "surrealdb"
 import { cookies } from "next/headers"
+import { type SurrealResponse } from "@/types/surreal-response"
+import { getActivePlayerCount } from "./statistics-actions"
 
 interface ConnectionSettings {
   url: string
@@ -116,7 +118,7 @@ export async function fetchDatabaseStats() {
       for (const table of tablesResult) {
         // In 1.2.1, the table might be returned directly as a string
         try {
-          const countResult = await db.query(`SELECT count() FROM ${table} GROUP ALL`)
+          const countResult: SurrealResponse<any> = await db.query(`SELECT count() FROM ${table} GROUP ALL`)
                       // In 1.2.1, the result structure is different
           if (countResult && Array.isArray(countResult)) {
             records += countResult[0][0]['count'];
@@ -135,7 +137,7 @@ export async function fetchDatabaseStats() {
       const userCountResult = await db.query("SELECT count() FROM user GROUP ALL")
       users = userCountResult[0]?.result?.[0]?.count || 0
       */
-      users = await countTable("user")
+      users = await countTable("user") || 0
     } catch (e) {
       console.error("Error counting users:", e)
     }
@@ -143,8 +145,8 @@ export async function fetchDatabaseStats() {
     // Get player count
     let players = 0
     try {
-      const playerCountResult = await db.query("SELECT count() FROM Joueur GROUP ALL")
-      players = playerCountResult[0]?.result?.[0]?.count || 0
+      const playerCountResult: SurrealResponse<any> = await db.query("SELECT count() FROM RecordedUser GROUP ALL")
+      players = playerCountResult[0][0]['count'] || 0
     } catch (e) {
       console.error("Error counting players:", e)
     }
@@ -152,17 +154,16 @@ export async function fetchDatabaseStats() {
     // Get active player count
     let activePlayers = 0
     try {
-      const activePlayerCountResult = await db.query("SELECT count() FROM Joueur WHERE active = true")
-      activePlayers = activePlayerCountResult[0]?.result?.[0]?.count || 0
+      activePlayers = await getActivePlayerCount()
     } catch (e) {
       console.error("Error counting active players:", e)
     }
 
     // Get version info
-    let version = "Unknown"
+    let version = "Inconnu"
     try {
       const infoResult = await db.query("INFO FOR DB")
-      version = infoResult[0]?.version || "Unknown"
+      version = infoResult[0]?.version || "Inconnu"
     } catch (e) {
       console.error("Error getting DB info:", e)
     }
@@ -199,7 +200,7 @@ export async function fetchDatabaseStats() {
 export async function countTable(table: string) : Promise<number> {
   try {
     const db = await getSurrealClient()
-    const query_result: any[][] = await db.query(`SELECT count() FROM ${table} GROUP ALL`)
+    const query_result: SurrealResponse<any> = await db.query(`SELECT count() FROM ${table} GROUP ALL`)
     await db.close()
 
     const result: number = query_result[0][0]['count'];

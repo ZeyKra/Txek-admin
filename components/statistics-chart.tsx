@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface StatisticsChartProps {
   data: {
@@ -14,153 +15,101 @@ interface StatisticsChartProps {
 }
 
 export function StatisticsChart({ data }: StatisticsChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    if (!canvasRef.current || !data) return
-
-    const ctx = canvasRef.current.getContext("2d")
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-
-    // Set canvas dimensions
-    const width = canvasRef.current.width
-    const height = canvasRef.current.height
-    const padding = 60
-    const chartWidth = width - padding * 2
-    const chartHeight = height - padding * 2
-
-    // Find max value for scaling
-    const allValues = data.datasets.flatMap((dataset) => dataset.data)
-    const maxValue = Math.max(...allValues, 10)
-
-    // Draw axes
-    ctx.strokeStyle = "#e5e7eb" // gray-200
-    ctx.lineWidth = 1
-
-    // X-axis
-    ctx.beginPath()
-    ctx.moveTo(padding, height - padding)
-    ctx.lineTo(width - padding, height - padding)
-    ctx.stroke()
-
-    // Y-axis
-    ctx.beginPath()
-    ctx.moveTo(padding, padding)
-    ctx.lineTo(padding, height - padding)
-    ctx.stroke()
-
-    // Draw Y-axis labels
-    const yAxisSteps = 5
-    for (let i = 0; i <= yAxisSteps; i++) {
-      const value = Math.round((maxValue / yAxisSteps) * i)
-      const y = height - padding - (i / yAxisSteps) * chartHeight
-
-      ctx.fillStyle = "#6b7280" // gray-500
-      ctx.font = "10px sans-serif"
-      ctx.textAlign = "right"
-      ctx.fillText(value.toString(), padding - 5, y + 3)
-
-      // Draw grid line
-      ctx.strokeStyle = "#e5e7eb" // gray-200
-      ctx.beginPath()
-      ctx.moveTo(padding, y)
-      ctx.lineTo(width - padding, y)
-      ctx.stroke()
-    }
-
-    // Draw X-axis labels
-    const xStep = chartWidth / (data.labels.length - 1)
-    data.labels.forEach((label, i) => {
-      const x = padding + i * xStep
-
-      ctx.fillStyle = "#6b7280" // gray-500
-      ctx.font = "10px sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(label, x, height - padding + 15)
-    })
-
-    // Draw datasets
-    data.datasets.forEach((dataset, datasetIndex) => {
-      ctx.strokeStyle = dataset.color
-      ctx.lineWidth = 2
-      ctx.beginPath()
-
-      dataset.data.forEach((value, i) => {
-        const x = padding + i * xStep
-        const y = height - padding - (value / maxValue) * chartHeight
-
-        if (i === 0) {
-          ctx.moveTo(x, y)
-        } else {
-          ctx.lineTo(x, y)
+  // Transform data for Recharts format
+  const chartData = data.labels.map((label, index) => {
+    const dataPoint: any = { name: label }
+    
+    data.datasets.forEach((dataset) => {
+      // Translate dataset labels to French
+      const translateLabel = (label: string) => {
+        switch (label) {
+          case "Active Players":
+            return "Joueurs Actifs"
+          case "Matches":
+            return "Matchs"
+          default:
+            return label
         }
-      })
-
-      ctx.stroke()
-
-      // Draw points
-      dataset.data.forEach((value, i) => {
-        const x = padding + i * xStep
-        const y = height - padding - (value / maxValue) * chartHeight
-
-        ctx.fillStyle = dataset.color
-        ctx.beginPath()
-        ctx.arc(x, y, 4, 0, Math.PI * 2)
-        ctx.fill()
-      })
+      }
+      
+      dataPoint[translateLabel(dataset.label)] = dataset.data[index] || 0
     })
+    
+    return dataPoint
+  })
 
-    // Draw legend
-    const legendY = padding / 2
-    let legendX = padding
-
-    // Translate dataset labels to French
-    const translateLabel = (label: string) => {
-      switch (label) {
+  // Translate dataset labels for the chart
+  const translatedDatasets = data.datasets.map(dataset => ({
+    ...dataset,
+    translatedLabel: (() => {
+      switch (dataset.label) {
         case "Active Players":
           return "Joueurs Actifs"
-        case "Average Score":
-          return "Score Moyen"
         case "Matches":
           return "Matchs"
         default:
-          return label
+          return dataset.label
       }
-    }
-
-    data.datasets.forEach((dataset, i) => {
-      // Draw line
-      ctx.strokeStyle = dataset.color
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(legendX, legendY)
-      ctx.lineTo(legendX + 20, legendY)
-      ctx.stroke()
-
-      // Draw point
-      ctx.fillStyle = dataset.color
-      ctx.beginPath()
-      ctx.arc(legendX + 10, legendY, 3, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Draw label in French
-      const translatedLabel = translateLabel(dataset.label)
-      ctx.fillStyle = "#000"
-      ctx.font = "12px sans-serif"
-      ctx.textAlign = "left"
-      ctx.fillText(translatedLabel, legendX + 25, legendY + 4)
-
-      legendX += ctx.measureText(translatedLabel).width + 50
-    })
-  }, [data])
+    })()
+  }))
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <canvas ref={canvasRef} width={800} height={400} className="w-full h-full" />
-    </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Statistiques</CardTitle>
+        <CardDescription>
+          Aperçu des performances et de l'activité
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData}
+              margin={{
+                top: 20,
+                right: 30,
+                left: 20,
+                bottom: 20,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis 
+                dataKey="name" 
+                className="text-sm fill-muted-foreground"
+                tick={{ fontSize: 12 }}
+              />
+              <YAxis 
+                className="text-sm fill-muted-foreground"
+                tick={{ fontSize: 12 }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--background))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '6px',
+                }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+              />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+              />
+              {translatedDatasets.map((dataset, index) => (
+                <Line
+                  key={index}
+                  type="monotone"
+                  dataKey={dataset.translatedLabel}
+                  stroke={dataset.color}
+                  strokeWidth={2}
+                  dot={{ fill: dataset.color, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: dataset.color, strokeWidth: 2 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

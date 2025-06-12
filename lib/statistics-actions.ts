@@ -1,19 +1,22 @@
 "use server"
+import { SurrealResponse } from "@/types/surreal-response"
 import { getSurrealClient } from "./surreal-actions"
+import { log } from "console"
 
 // Fetch statistics for dashboard
 export async function fetchStatistics() {
   try {
     const db = await getSurrealClient()
-    /*
+    
 
     // Get total players count
-    const totalPlayersResult = await db.query(`SELECT count() FROM Joueur GROUP ALL`)
-    const totalPlayers = totalPlayersResult[0][0]['count']
+    const totalPlayersResult: SurrealResponse<any> = await db.query(`SELECT COUNT() FROM RecordedUser GROUP ALL`)
+    
+    const totalPlayers = totalPlayersResult[0][0]['count'] || 0
 
     // Get active players count
-    const activePlayersResult = await db.query(`SELECT count() FROM Joueur WHERE active = true`)
-    const activePlayers = activePlayersResult[0]?.result?.[0]?.count || 0
+    //const activePlayersResult: SurrealResponse<any> = await db.query(`SELECT COUNT() FROM RecordedUser GROUP ALL`)
+    const activePlayers = await getActivePlayerCount()
 
     // Calculate active players percentage
     const activePlayersPercentage = totalPlayers > 0 ? Math.round((activePlayers / totalPlayers) * 100) : 0
@@ -21,26 +24,26 @@ export async function fetchStatistics() {
     // Get new players in the last month
     const oneMonthAgo = new Date()
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-    const newPlayersResult = await db.query(
-      `SELECT count() FROM player WHERE created_at > "${oneMonthAgo.toISOString()}"`,
+    const newPlayersResult: SurrealResponse<any> = await db.query(
+      `SELECT COUNT() from RecordedUser WHERE time::week(created_at) = time::week(time::now()) GROUP ALL`,
     )
-    const newPlayers = newPlayersResult[0]?.result?.[0]?.count || 0
+    const newPlayers = newPlayersResult[0][0]['count'] || 0
 
     // Get total matches count (assuming we have a match table)
     let totalMatches = 0
     let matchesThisMonth = 0
 
     try {
-      const totalMatchesResult = await db.query(`SELECT count() FROM match`)
-      totalMatches = totalMatchesResult[0]?.result?.[0]?.count || 0
+      const totalMatchesResult: SurrealResponse<any> = await db.query(`SELECT COUNT() FROM Match GROUP ALL`)
+      totalMatches = totalMatchesResult[0][0]['count'] || 0
 
-      const matchesThisMonthResult = await db.query(
-        `SELECT count() FROM match WHERE created_at > "${oneMonthAgo.toISOString()}"`,
+      const matchesThisMonthResult: SurrealResponse<any> = await db.query(
+        `SELECT COUNT() from Match WHERE time::week(created_at) = time::week(time::now()) GROUP ALL`,
       )
-      matchesThisMonth = matchesThisMonthResult[0]?.result?.[0]?.count || 0
+      matchesThisMonth = matchesThisMonthResult[0][0]['count'] || 0
     } catch (e) {
       // Match table might not exist, use player stats as fallback
-      const playerStatsResult = await db.query(`
+      const playerStatsResult: SurrealResponse<any> = await db.query(`
         SELECT math::sum(stats.games) AS total_games 
         FROM player 
         WHERE stats.games != NONE
@@ -51,62 +54,25 @@ export async function fetchStatistics() {
       matchesThisMonth = Math.round(totalMatches * 0.15) // Assuming 15% of matches happened this month
     }
 
-    // Get average score
-    const avgScoreResult = await db.query(`
-      SELECT math::mean(score) AS avg_score 
-      FROM player 
-      WHERE score != NONE
-    `)
-    const averageScore = Math.round(avgScoreResult[0]?.result?.[0]?.avg_score || 0)
-
-    // For score change, we'll calculate based on player data
-    // This would ideally use historical data, but we'll estimate
-    const scoreChange = Math.round(Math.random() * 10 - 3) // Random value between -3 and 7
-
     // Get top players
-    const topPlayersResult = await db.query(`
-      SELECT id, name, team, score, 
-             (SELECT count() FROM player WHERE score > tb.score) + 1 AS rank
-      FROM player AS tb
-      WHERE score != NONE
-      ORDER BY score DESC
-      LIMIT 5
-    `)
-    const topPlayers = (topPlayersResult[0]?.result || []).map((player: any, index: number) => {
+    const topPlayersResult: SurrealResponse<any> = await db.query(`SELECT 
+    username as name, id AS user_id,
+    (SELECT VALUE count() FROM $parent->recordeduser_recorded_match->Match GROUP count)[0].count OR 0 AS score
+FROM RecordedUser ORDER BY score DESC;`)
+    console.log("Top Players Result:", topPlayersResult);
+    const topPlayers = (topPlayersResult[0] || []).map((player: any, index: number) => {
+      // Assign a random rank and change for each player
+      const playerData = {
+        ...player,
+        rank: player.rank || index + 1,
+        change: Math.round(Math.random() * 6 - 2),
+      }
+      console.log("Player Data:", playerData);
+      
       return {
         ...player,
         rank: player.rank || index + 1,
         change: Math.round(Math.random() * 6 - 2), // Random value between -2 and 4
-      }
-    })
-
-    // Get team performance
-    const teamsResult = await db.query(`
-      SELECT 
-        team,
-        count() as player_count,
-        math::sum(stats.wins) as wins,
-        math::sum(stats.losses) as losses,
-        math::sum(stats.draws) as draws,
-        math::sum(score) as totalScore
-      FROM player
-      WHERE team != NONE AND team != ""
-      GROUP BY team
-      ORDER BY wins DESC
-    `)
-
-    const teamPerformance = (teamsResult[0]?.result || []).map((team: any) => {
-      const totalGames = (team.wins || 0) + (team.losses || 0) + (team.draws || 0)
-      const winRate = totalGames > 0 ? Math.round((team.wins / totalGames) * 100) : 0
-
-      return {
-        name: team.team,
-        wins: team.wins || 0,
-        losses: team.losses || 0,
-        draws: team.draws || 0,
-        winRate,
-        totalScore: team.totalScore || 0,
-        playerCount: team.player_count || 0,
       }
     })
 
@@ -132,15 +98,6 @@ export async function fetchStatistics() {
       activePlayers,
     ]
 
-    const avgScore_data = [
-      Math.round(averageScore * 0.85),
-      Math.round(averageScore * 0.88),
-      Math.round(averageScore * 0.92),
-      Math.round(averageScore * 0.95),
-      Math.round(averageScore * 0.98),
-      averageScore,
-    ]
-
     const matches_data = [
       Math.round(totalMatches * 0.5),
       Math.round(totalMatches * 0.6),
@@ -159,19 +116,12 @@ export async function fetchStatistics() {
           color: "#3b82f6", // blue-500
         },
         {
-          label: "Average Score",
-          data: avgScore_data,
-          color: "#10b981", // emerald-500
-        },
-        {
           label: "Matches",
           data: matches_data,
           color: "#f59e0b", // amber-500
         },
       ],
     }
-    */
-
     
     // Mock statistics data
     const statistics = {
@@ -181,8 +131,6 @@ export async function fetchStatistics() {
       activePlayersPercentage: 73,
       totalMatches: 1243,
       matchesThisMonth: 156,
-      averageScore: 78,
-      scoreChange: 5.2,
 
       // Chart data
       chartData: {
@@ -190,13 +138,8 @@ export async function fetchStatistics() {
         datasets: [
           {
             label: "Active Players",
-            data: [120, 132, 145, 162, 178, 1],
+            data: [120, 132, 145, 162, 178, 187],
             color: "#3b82f6", // blue-500
-          },
-          {
-            label: "Average Score",
-            data: [65, 68, 72, 75, 76, 78],
-            color: "#10b981", // emerald-500
           },
           {
             label: "Matches",
@@ -249,56 +192,12 @@ export async function fetchStatistics() {
           change: 3,
         },
       ],
-
-      // Team performance
-      teamPerformance: [
-        {
-          name: "Team Alpha",
-          wins: 24,
-          losses: 8,
-          draws: 4,
-          winRate: 75,
-          totalScore: 1250,
-        },
-        {
-          name: "Team Beta",
-          wins: 20,
-          losses: 10,
-          draws: 6,
-          winRate: 67,
-          totalScore: 1120,
-        },
-        {
-          name: "Team Gamma",
-          wins: 18,
-          losses: 12,
-          draws: 6,
-          winRate: 60,
-          totalScore: 980,
-        },
-        {
-          name: "Team Delta",
-          wins: 16,
-          losses: 14,
-          draws: 6,
-          winRate: 53,
-          totalScore: 920,
-        },
-        {
-          name: "Team Epsilon",
-          wins: 12,
-          losses: 18,
-          draws: 6,
-          winRate: 40,
-          totalScore: 780,
-        },
-      ],
     }
 
     await db.close()
-    return statistics
+    //return statistics
 
-    /*
+    
     return {
       totalPlayers,
       newPlayers,
@@ -306,13 +205,10 @@ export async function fetchStatistics() {
       activePlayersPercentage,
       totalMatches,
       matchesThisMonth,
-      averageScore,
-      scoreChange,
       chartData,
       topPlayers,
-      teamPerformance,
     }
-      */
+      
   } catch (error) {
     console.error("Failed to fetch statistics:", error)
     throw new Error(`Failed to fetch statistics: ${error}`)
@@ -423,6 +319,27 @@ export async function getPlayerPerformanceHistory(playerId: string) {
   } catch (error) {
     console.error(`Failed to fetch player performance history: ${error}`)
     throw new Error(`Failed to fetch player performance history: ${error}`)
+  }
+}
+
+export async function getActivePlayerCount() {
+  try {
+    const db = await getSurrealClient()
+    
+    // Get active player count
+    const result: SurrealResponse<any> = await db.query(`SELECT 
+    username as name, id AS user_id,
+    (SELECT VALUE count() FROM $parent->recordeduser_recorded_match->Match WHERE Time::week(created_at) = Time::week(Time::now()) GROUP count )[0].count OR 0 AS match_count
+FROM RecordedUser;`)
+    const activePlayers = result[0] || []
+    const activePlayersNumber = activePlayers.filter((player: any) => player.match_count > 0).length
+    console.log("Active Players Result:", activePlayers);
+
+    await db.close()
+    return activePlayersNumber
+  } catch (error) {
+    console.error("Failed to fetch active player count:", error)
+    throw new Error(`Failed to fetch active player count: ${error}`)
   }
 }
 

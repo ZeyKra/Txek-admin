@@ -21,17 +21,15 @@ export function TopPlayersTable({ players }: TopPlayersTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[60px]">Rang</TableHead>
+          <TableHead className="w-[100px]">Rang</TableHead>
           <TableHead>Joueur</TableHead>
-          <TableHead>Équipe</TableHead>
-          <TableHead className="text-right">Score</TableHead>
-          <TableHead className="text-right">Évolution</TableHead>
+          <TableHead className="text-right">Match créé</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {players.map((player) => (
           <TableRow key={player.id}>
-            <TableCell>
+            <TableCell className="w-[100px]">
               {player.rank <= 3 ? (
                 <div className="flex items-center justify-center">
                   <Trophy
@@ -51,20 +49,14 @@ export function TopPlayersTable({ players }: TopPlayersTableProps) {
                     {player.name
                       .split(" ")
                       .map((n) => n[0])
-                      .join("")}
+                      .join("")
+                      .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="font-medium">{player.name}</div>
               </div>
             </TableCell>
-            <TableCell>{player.team}</TableCell>
             <TableCell className="text-right font-medium">{player.score}</TableCell>
-            <TableCell className="text-right">
-              <Badge variant={player.change > 0 ? "success" : player.change < 0 ? "destructive" : "outline"}>
-                {player.change > 0 ? "+" : ""}
-                {player.change}
-              </Badge>
-            </TableCell>
           </TableRow>
         ))}
       </TableBody>

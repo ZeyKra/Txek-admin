@@ -66,7 +66,7 @@ export function StatisticsOverview() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Joueurs Totaux</CardTitle>
@@ -92,18 +92,6 @@ export function StatisticsOverview() {
           <CardContent>
             <div className="text-2xl font-bold">{statistics.totalMatches}</div>
             <p className="text-xs text-muted-foreground">{statistics.matchesThisMonth} ce mois</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statistics.averageScore}</div>
-            <p className="text-xs text-muted-foreground">
-              {statistics.scoreChange > 0 ? "+" : ""}
-              {statistics.scoreChange}% par rapport au mois dernier
-            </p>
           </CardContent>
         </Card>
       </div>

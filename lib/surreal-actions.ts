@@ -292,12 +292,59 @@ export async function deleteRecord(tableName: string, id: string) {
   }
 }
 
+function parseArrayString(input: string) {
+  if (typeof input !== 'string') return [];
+
+  // Enlever les crochets s'ils sont présents
+  let cleaned = input.trim().replace(/^\[|\]$/g, '');
+
+  // Séparer sur les virgules
+  const parts = cleaned.split(',');
+
+  // Nettoyer chaque élément
+  const result = parts
+    .map(part =>
+      part
+        .trim()
+        .replace(/^['"]|['"]$/g, '') // Supprime les guillemets simples OU doubles au début/fin
+    )
+    .filter(part => part.length > 0); // Ignore les éléments vides
+
+  return result;
+}
+
+function parseDataBeforeRequest(data: any) {
+  // Convert date strings to Date objects for specific fields
+  if (data.completed_at && typeof data.completed_at === 'string') {
+    data.completed_at = new Date(data.completed_at)
+  }
+  if (data.created_at && typeof data.created_at === 'string') {
+    data.created_at = new Date(data.created_at)
+  }
+
+  // Parse players array if it's a string
+  if (data.players && typeof data.players === 'string') {
+    data.players = parseArrayString(data.players);
+  }
+
+  if( data.round_max && typeof data.round_max === 'string') {
+    data.round_max = parseInt(data.round_max, 10);
+  }
+
+  return data; 
+}
 // Create a new record
 export async function createRecord(tableName: string, data: any) {
   try {
     const db = await getSurrealClient()
-    // In 1.2.1, the create method might have a different signature
-    const result = await db.create(tableName, data)
+
+    console.log(`Creating record in ${tableName} with data:`, data);
+    
+    // Parse data before creating the record
+    data = parseDataBeforeRequest(data);
+
+
+    const result = await db.query(`CREATE ONLY ${tableName} CONTENT $item`, { item: data })
     await db.close()
     return result
   } catch (error) {
@@ -313,12 +360,7 @@ export async function updateRecord(tableName: string, id: string, data: any) {
     // Retret du champ id a fin de mettre a jour l'entré
     data = Object.fromEntries(Object.entries(data).filter(([key]) => key !== "id"));
     // Convert date strings to Date objects for specific fields
-    if (data.completed_at && typeof data.completed_at === 'string') {
-      data.completed_at = new Date(data.completed_at)
-    }
-    if (data.created_at && typeof data.created_at === 'string') {
-      data.created_at = new Date(data.created_at)
-    }
+    data = parseDataBeforeRequest(data);
 
 
     //const result = await db.update(id, data)

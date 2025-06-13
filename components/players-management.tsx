@@ -19,6 +19,8 @@ import { fetchPlayers, createPlayer, updatePlayer, deletePlayer } from "@/lib/pl
 import { BarChart2, Edit, Plus, Search, Trash2, UserRound } from "lucide-react"
 import { PlayerForm } from "./player-form"
 import { toast } from "sonner"
+import { get } from "http"
+import { getActivePlayerCount, getPlayerStats, isPlayerActive } from "@/lib/statistics-actions"
 
 export function PlayersManagement() {
   const [players, setPlayers] = useState<any[]>([])
@@ -29,6 +31,7 @@ export function PlayersManagement() {
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [activePlayersData, setActivePlayersData] = useState<any[]>([])
   const pageSize = 10
 
   const loadPlayers = async () => {
@@ -36,8 +39,11 @@ export function PlayersManagement() {
     try {
       const data = await fetchPlayers(page, pageSize)
       setPlayers(data.players)
-      
+
       setTotalPages(Math.ceil(data.total / pageSize) || 1)
+
+      const activeData = await getActivePlayerCount()
+      setActivePlayersData(activeData)
     } catch (error) {
       console.error("Failed to fetch players:", error)
     } finally {
@@ -137,57 +143,55 @@ export function PlayersManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Joueur</TableHead>
-                  <TableHead>Équipe</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Niveau</TableHead>
-                  <TableHead>Score</TableHead>
+                  <TableHead>Créé le</TableHead>
                   <TableHead>Statut</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
+
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPlayers.map((player) => (
-                  <TableRow key={player.id}>
-                    <TableCell className="font-medium">
+                {filteredPlayers.map( (player) => {
+                    //const playerActiveData = activePlayersData.find(activePlayer => activePlayer.id === player.id)
+                    //const isActive = playerActiveData.match_count > 0 ? true : false;
+                    return (
+                    <TableRow key={player.id}>
+                      <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <UserRound className="h-4 w-4 text-muted-foreground" />
                         {player.username}
                       </div>
                     </TableCell>
-                    <TableCell>{player.team}</TableCell>
-                    <TableCell>"{player.position}"</TableCell>
-                    <TableCell>"{player.level}"</TableCell>
-                    <TableCell>"{player.score}"</TableCell>
+                    <TableCell>{new Date(player.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Badge variant={player.active ? "success" : "outline"}>
-                        {player.active ? "Actif" : "Inactif"}
+                      <Badge variant={true ? "success" : "outline"}>
+                      {false ? "Actif" : "Inactif"}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                          <Link href={`/dashboard/players/${player.id}`}>
-                            <BarChart2 className="h-4 w-4" />
-                            <span className="sr-only">Statistiques</span>
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(player)} className="h-8 w-8 p-0">
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Modifier</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(player.id)}
-                          className="h-8 w-8 p-0 text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Supprimer</span>
-                        </Button>
+                      <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                        <Link href={`/dashboard/players/${player.id}`}>
+                        <BarChart2 className="h-4 w-4" />
+                        <span className="sr-only">Statistiques</span>
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(player)} className="h-8 w-8 p-0">
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Modifier</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(player.id)}
+                        className="h-8 w-8 p-0 text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Supprimer</span>
+                      </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                ))}
+                    </TableRow>
+                  );
+              })}
               </TableBody>
             </Table>
           </div>
